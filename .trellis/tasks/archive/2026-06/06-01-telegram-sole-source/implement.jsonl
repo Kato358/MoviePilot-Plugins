@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/plugin/client-guidelines.md", "reason": "Telegram 客户端需遵循 client 模式和规范"}
+{"file": ".trellis/spec/plugin/handler-guidelines.md", "reason": "SearchHandler 改造需遵循 handler 搜索编排模式"}
+{"file": ".trellis/spec/plugin/config-and-ui.md", "reason": "配置项变更和 UI 表单更新规范"}
+{"file": ".trellis/spec/plugin/data-access.md", "reason": "SQLite 本地索引数据持久化规范"}
+{"file": ".trellis/spec/plugin/directory-structure.md", "reason": "新建/删除文件的目录结构规范"}
+{"file": ".trellis/tasks/06-01-telegram-sole-source/research/codebase-structure.md", "reason": "现有代码结构和搜索架构分析"}

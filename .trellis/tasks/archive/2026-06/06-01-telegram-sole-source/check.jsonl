@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/plugin/quality-guidelines.md", "reason": "质量验证标准和检查清单"}
+{"file": ".trellis/spec/plugin/handler-guidelines.md", "reason": "Handler 模式合规性检查"}
+{"file": ".trellis/spec/plugin/client-guidelines.md", "reason": "Client 模式合规性检查"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层一致性检查指南"}
