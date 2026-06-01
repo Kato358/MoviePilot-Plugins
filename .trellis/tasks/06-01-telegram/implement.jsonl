@@ -1,0 +1,11 @@
+[
+  {"file": ".trellis/spec/plugin/client-guidelines.md", "reason": "Telegram 客户端需遵循客户端开发规范"},
+  {"file": ".trellis/spec/plugin/handler-guidelines.md", "reason": "SearchHandler/SyncHandler 改造需遵循处理器规范"},
+  {"file": ".trellis/spec/plugin/directory-structure.md", "reason": "新文件放置和删除需遵循目录规范"},
+  {"file": ".trellis/spec/plugin/config-and-ui.md", "reason": "配置和 UI 变更需遵循规范"},
+  {"file": ".trellis/spec/plugin/quality-guidelines.md", "reason": "防风控要求和代码质量标准"},
+  {"file": ".trellis/spec/plugin/plugin-lifecycle.md", "reason": "插件生命周期方法变更"},
+  {"file": ".trellis/spec/plugin/data-access.md", "reason": "新增 SQLite 本地索引需遵循数据访问规范"},
+  {"file": "docs/adr/0001-telegram-as-sole-search-source.md", "reason": "架构决策记录"},
+  {"file": "CONTEXT.md", "reason": "领域术语表"}
+]
