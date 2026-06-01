@@ -83,7 +83,7 @@ class UIConfig:
                                 'props': {
                                     'type': 'info',
                                     'variant': 'tonal',
-                                    'text': '自动搜索115网盘资源并转存缺失的电影和剧集，需配置115 Cookie和搜索服务。避免风控，固定执行周期为 8 小时。'
+                                    'text': '自动搜索115网盘资源并转存缺失的电影和剧集，需配置115 Cookie和Telegram频道。避免风控，固定执行周期为 8 小时。'
                                 }
                             }]
                         }]
@@ -115,7 +115,7 @@ class UIConfig:
                         ]
                     },
 
-                    # 取消屏蔽后的站点选择/窗口期/延迟分钟（1.2.4 语义同步）
+                    # 取消屏蔽后的站点选择/窗口期/延迟分钟
                     {
                         'component': 'VRow',
                         'content': [
@@ -172,7 +172,7 @@ class UIConfig:
                         ]
                     },
 
-                    # 115网盘说明
+                    # 115网盘配置说明
                     {
                         'component': 'VRow',
                         'content': [{
@@ -200,7 +200,8 @@ class UIConfig:
                              'content': [{'component': 'VTextField', 'props': {'model': 'cookies', 'label': '115 Cookie', 'type': 'password', 'placeholder': 'UID=xxx; CID=xxx; SEID=xxx'}}]}
                         ]
                     },
-                    # PanSou说明
+
+                    # Telegram 搜索源说明
                     {
                         'component': 'VRow',
                         'content': [{
@@ -208,113 +209,63 @@ class UIConfig:
                             'props': {'cols': 12},
                             'content': [{
                                 'component': 'VAlert',
-                                'props': {'type': 'info', 'variant': 'tonal', 'text': 'PanSou搜索服务：网盘资源聚合搜索，用于搜索115网盘分享链接'}
+                                'props': {
+                                    'type': 'info',
+                                    'variant': 'tonal',
+                                    'text': 'Telegram 频道搜索：通过 Telegram 频道搜索115网盘资源分享。HTTP模式零配置即可使用，MTProto模式可搜索全部历史消息（需 Telegram API 凭据）。'
+                                }
                             }]
                         }]
                     },
-                    # PanSou 配置
+                    # Telegram 配置
                     {
                         'component': 'VRow',
                         'content': [
                             {'component': 'VCol', 'props': {'cols': 6, 'md': 3},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'pansou_enabled', 'label': '启用 PanSou'}}]},
+                             'content': [{'component': 'VSwitch', 'props': {'model': 'telegram_enabled', 'label': '启用 Telegram 搜索'}}]},
                             {'component': 'VCol', 'props': {'cols': 12, 'md': 3},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'pansou_url', 'label': 'PanSou API 地址', 'placeholder': 'https://your-pansou-api.com'}}]},
+                             'content': [{'component': 'VSelect', 'props': {
+                                 'model': 'telegram_mode',
+                                 'label': '搜索模式',
+                                 'items': [{'title': 'HTTP 模式（零配置）', 'value': 'http'}, {'title': 'MTProto 模式（全量搜索）', 'value': 'mtproto'}],
+                                 'hint': 'HTTP 抓取公开频道最近消息，MTProto 搜索全部历史',
+                                 'persistent-hint': True
+                             }}]},
                             {'component': 'VCol', 'props': {'cols': 12, 'md': 6},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'pansou_channels', 'label': 'TG 搜索频道', 'placeholder': '频道,用逗号分隔'}}]}
+                             'content': [{'component': 'VTextField', 'props': {
+                                 'model': 'telegram_channels',
+                                 'label': 'Telegram 频道列表',
+                                 'placeholder': 'gimy115,QukanMovie,yingshiziyuanpindao',
+                                 'hint': '多个频道用逗号分隔',
+                                 'persistent-hint': True
+                             }}]}
                         ]
                     },
-                    # PanSou 认证
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {'component': 'VCol', 'props': {'cols': 6, 'md': 3},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'pansou_auth_enabled', 'label': '启用认证'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 3},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'pansou_username', 'label': 'PanSou 用户名', 'placeholder': '启用认证时填写'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 6},
-                             'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'pansou_password', 'label': 'PanSou 密码', 'type': 'password', 'placeholder': '启用认证时填写'}}]}
-                        ]
-                    },
-                    # Nullbr说明
-                    # {
-                    #     'component': 'VRow',
-                    #     'content': [{
-                    #         'component': 'VCol',
-                    #         'props': {'cols': 12},
-                    #         'content': [{'component': 'VAlert', 'props': {'type': 'info', 'variant': 'tonal', 'text': 'Nullbr 资源查询：基于TMDB ID精准查询115网盘资源，准确度更高'}}]
-                    #     }]
-                    # },
-                    # Nullbr 配置
-                    # {
-                    #     'component': 'VRow',
-                    #     'content': [
-                    #         {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                    #          'content': [{'component': 'VSwitch', 'props': {'model': 'nullbr_enabled', 'label': '启用 Nullbr'}}]},
-                    #         {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                    #          'content': [{'component': 'VTextField', 'props': {'model': 'nullbr_appid', 'label': 'Nullbr APP ID', 'placeholder': '请输入 APP ID'}}]},
-                    #         {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                    #          'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'nullbr_api_key', 'label': 'Nullbr API Key', 'type': 'password', 'placeholder': '请输入 API Key'}}]}
-                    #     ]
-                    # },
-                    # HDHive说明
-                    {
-                        'component': 'VRow',
-                        'content': [{
-                            'component': 'VCol',
-                            'props': {'cols': 12},
-                            'content': [{'component': 'VAlert', 'props': {'type': 'info', 'variant': 'tonal', 'text': 'HDHive资源查询：基于TMDB ID查询115网盘资源。API模式使用API Key查询；Playwright模式使用浏览器模拟获取分享链接（需安装 playwright 和 chromium）'}}]
-                        }]
-                    },
-                    # HDHive 配置
-                    {
-                        'component': 'VRow',
-                        'content': [
-                             {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'hdhive_enabled', 'label': '启用 HDHive'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VSelect', 'props': {'model': 'hdhive_query_mode', 'label': '查询模式',
-                                 'items': [{'title': 'API 模式', 'value': 'api'}, {'title': 'Playwright 模式', 'value': 'playwright'}]}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'hdhive_api_key', 'label': 'HDHive API Key', 'type': 'password', 'placeholder': 'API 模式下需要'}}]}
-                        ]
-                    },
-                    # HDHive 账号密码配置
+                    # MTProto 凭据配置
                     {
                         'component': 'VRow',
                         'content': [
                             {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'hdhive_username', 'label': 'HDHive 用户名', 'placeholder': 'Playwright 模式下需要'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 5},
-                             'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'hdhive_password', 'label': 'HDHive 密码', 'type': 'password', 'placeholder': 'Playwright 模式下需要'}}]}
+                             'content': [{'component': 'VTextField', 'props': {
+                                 'model': 'telegram_api_id',
+                                 'label': 'Telegram API ID',
+                                 'placeholder': 'MTProto 模式需要',
+                                 'hint': '从 https://my.telegram.org 获取',
+                                 'persistent-hint': True
+                             }}]},
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 8},
+                             'content': [{'component': 'VTextField', 'props': {
+                                 'clearable': True,
+                                 'model': 'telegram_api_hash',
+                                 'label': 'Telegram API Hash',
+                                 'type': 'password',
+                                 'placeholder': 'MTProto 模式需要',
+                                 'hint': '从 https://my.telegram.org 获取',
+                                 'persistent-hint': True
+                             }}]}
                         ]
                     },
-                    # HDHive 签到配置
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {'component': 'VCol', 'props': {'cols': 6, 'md': 4},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'hdhive_checkin_enabled', 'label': '每日自动签到', 'hint': '每天随机6~10点自动签到获取积分', 'persistent-hint': True}}]},
-                            {'component': 'VCol', 'props': {'cols': 6, 'md': 4},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'hdhive_checkin_gambler', 'label': '赌狗模式签到', 'hint': '高风险高回报（-3~+30积分）', 'persistent-hint': True}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VSelect', 'props': {'model': 'hdhive_checkin_mode', 'label': '签到模式',
-                                 'items': [{'title': 'API 模式', 'value': 'api'}, {'title': 'Playwright 模式', 'value': 'playwright'}],
-                                 'hint': 'API需Cookie，Playwright需账号密码', 'persistent-hint': True}}]}
-                        ]
-                    },
-                    # HDHive 积分配置
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'hdhive_auto_unlock', 'label': '自动解锁资源', 'hint': '关闭时仅查询免费资源'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'hdhive_max_unlock_points', 'label': '累计解锁总预算', 'type': 'number', 'placeholder': '50', 'hint': '一次任务最多允许消耗的积分总和'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'hdhive_max_points_per_sub', 'label': '单订阅解锁预算', 'type': 'number', 'placeholder': '20', 'hint': '处理单个订阅时允许消耗的最大积分'}}]}
-                        ]
-                    },
+
                     # 风控防护说明
                     {
                         'component': 'VRow',
@@ -366,34 +317,18 @@ class UIConfig:
             "save_path": "/我的接收/MoviePilot/TV",
             "movie_save_path": "/我的接收/MoviePilot/Movie",
             "cookies": "",
-            "pansou_enabled": True,
-            "pansou_url": "https://so.252035.xyz/",
-            "pansou_username": "",
-            "pansou_password": "",
-            "pansou_auth_enabled": False,
-            "pansou_channels": "QukanMovie",
-            "nullbr_enabled": False,
-            "nullbr_appid": "",
-            "nullbr_api_key": "",
-            "hdhive_enabled": False,
-            "hdhive_query_mode": "api",
-            "hdhive_api_key": "",
-            "hdhive_auto_unlock": False,
-            "hdhive_max_unlock_points": 50,
-            "hdhive_max_points_per_sub": 20,
-            "hdhive_checkin_enabled": False,
-            "hdhive_checkin_gambler": False,
-            "hdhive_checkin_mode": "api",
-            "hdhive_username": "",
-            "hdhive_password": "",
-            "hdhive_cookie": "",
-            "hdhive_auto_refresh": True,
-            "hdhive_refresh_before": 86400,
+
+            "telegram_enabled": True,
+            "telegram_mode": "http",
+            "telegram_channels": "gimy115,QukanMovie,yingshiziyuanpindao",
+            "telegram_api_id": "",
+            "telegram_api_hash": "",
+
             "exclude_subscribes": [],
             "block_system_subscribe": False,
             "max_transfer_per_sync": 50,
             "batch_size": 20,
-            "skip_other_season_dirs": True
+            "skip_other_season_dirs": True,
         }
 
         return form_schema, default_config
@@ -401,10 +336,8 @@ class UIConfig:
     @staticmethod
     def get_page(history: List[dict]) -> List[dict]:
         """
-        详情页内容与 1.2.4 无强耦合，保持原样即可
+        详情页内容
         """
-        # 你原有的 get_page 很长，这里不做任何改动，继续沿用你现有版本即可。
-        # 如果你希望我也按 1.2.4 统一“文案/按钮标题”，你告诉我我再一起改。
         from datetime import datetime
 
         history = history or []

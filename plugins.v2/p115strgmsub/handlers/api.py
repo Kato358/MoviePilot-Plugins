@@ -13,8 +13,8 @@ class ApiHandler:
 
     def __init__(
         self,
-        pansou_client,
-        p115_manager,
+        telegram_client=None,
+        p115_manager=None,
         only_115: bool = True,
         save_path: str = "",
         get_data_func: Callable = None,
@@ -23,14 +23,14 @@ class ApiHandler:
         """
         初始化 API 处理器
 
-        :param pansou_client: PanSou 客户端实例
+        :param telegram_client: Telegram 客户端实例
         :param p115_manager: 115 客户端管理器
         :param only_115: 是否只搜索115网盘资源
         :param save_path: 默认转存目录
         :param get_data_func: 获取数据的函数
         :param save_data_func: 保存数据的函数
         """
-        self._pansou_client = pansou_client
+        self._telegram_client = telegram_client
         self._p115_manager = p115_manager
         self._only_115 = only_115
         self._save_path = save_path
@@ -48,11 +48,15 @@ class ApiHandler:
         if apikey != settings.API_TOKEN:
             return {"error": "API密钥错误"}
 
-        if not self._pansou_client:
-            return {"error": "PanSou 客户端未初始化"}
+        if not self._telegram_client:
+            return {"error": "Telegram 客户端未初始化"}
 
-        cloud_types = ["115"] if self._only_115 else None
-        return self._pansou_client.search(keyword=keyword, cloud_types=cloud_types, limit=10)
+        import asyncio
+        try:
+            results = asyncio.run(self._telegram_client.search(keyword))
+            return {"results": results}
+        except Exception as e:
+            return {"error": str(e)}
 
     def transfer(self, share_url: str, save_path: str, apikey: str) -> dict:
         """

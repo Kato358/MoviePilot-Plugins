@@ -3,7 +3,6 @@
 结合MoviePilot订阅功能，自动搜索115网盘资源并转存缺失剧集
 """
 import datetime
-import random
 from pathlib import Path
 from threading import Lock
 from typing import Optional, Any, List, Dict, Tuple
@@ -22,17 +21,9 @@ from app.log import logger
 from app.plugins import _PluginBase
 from app.schemas.types import EventType, MediaType, NotificationType
 
-from .clients import PanSouClient, P115ClientManager, NullbrClient
+from .clients import P115ClientManager, TelegramClient
 from .handlers import SearchHandler, SyncHandler, SubscribeHandler, ApiHandler
 from .ui import UIConfig
-from .utils import (
-    download_so_file,
-    get_hdhive_token_info,
-    check_hdhive_cookie_valid,
-    refresh_hdhive_cookie_with_playwright,
-    hdhive_checkin_api,
-    hdhive_checkin_playwright,
-)
 
 lock = Lock()
 
@@ -47,7 +38,7 @@ class P115StrgmSub(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png"
     # 插件版本
-    plugin_version = "1.4.2"
+    plugin_version = "2.0.0"
     # 插件作者
     plugin_author = "mrtian2016"
     # 作者主页
@@ -68,39 +59,18 @@ class P115StrgmSub(_PluginBase):
     _notify: bool = False
 
     _cookies: str = ""
-    _pansou_enabled: bool = True
-    _pansou_url: str = "https://so.252035.xyz"
-    _pansou_username: str = ""
-    _pansou_password: str = ""
-    _pansou_auth_enabled: bool = False
-    _pansou_channels: str = "QukanMovie"
 
     _save_path: str = "/我的接收/MoviePilot/TV"
     _movie_save_path: str = "/我的接收/MoviePilot/Movie"
     _only_115: bool = True
     _exclude_subscribes: List[int] = []
 
-    _nullbr_enabled: bool = False
-    _nullbr_appid: str = ""
-    _nullbr_api_key: str = ""
-
-    _hdhive_enabled: bool = False
-    _hdhive_username: str = ""
-    _hdhive_password: str = ""
-    _hdhive_cookie: str = ""
-    _hdhive_auto_refresh: bool = False
-    _hdhive_refresh_before: int = 86400
-    _hdhive_query_mode: str = "api"
-    _hdhive_api_key: str = ""
-    _hdhive_auto_unlock: bool = False
-    _hdhive_max_unlock_points: int = 50
-    _hdhive_max_points_per_sub: int = 20
-    
-    # HDHive 签到配置
-    _hdhive_checkin_enabled: bool = False
-    _hdhive_checkin_mode: str = "api"       # "api" 或 "playwright"
-    _hdhive_checkin_type: str = "normal"    # "normal" 或 "gamble"
-    _hdhive_checkin_cron: str = "0 8 * * *"
+    # Telegram 配置
+    _telegram_enabled: bool = True
+    _telegram_mode: str = "http"
+    _telegram_channels: str = "gimy115,QukanMovie,yingshiziyuanpindao"
+    _telegram_api_id: str = ""
+    _telegram_api_hash: str = ""
 
     # 是否屏蔽系统订阅（True=已屏蔽系统订阅，False=已恢复系统订阅）
     _block_system_subscribe: bool = False
@@ -116,10 +86,8 @@ class P115StrgmSub(_PluginBase):
     _system_subscribe_window_hours: float = 1.0  # 0 禁用窗口
 
     # 运行时对象
-    _pansou_client: Optional[PanSouClient] = None
     _p115_manager: Optional[P115ClientManager] = None
-    _nullbr_client: Optional[NullbrClient] = None
-    _hdhive_client: Optional[Any] = None
+    _telegram_client: Optional[TelegramClient] = None
 
     # 处理器
     _search_handler: Optional[SearchHandler] = None
@@ -297,7 +265,7 @@ class P115StrgmSub(_PluginBase):
 
     def _try_set_default_sites_for_unblocked(self, site_ids: List[int]):
         """
-        只在“已恢复系统订阅”时尝试设置系统默认订阅站点为窗口站点。
+        只在"已恢复系统订阅"时尝试设置系统默认订阅站点为窗口站点。
         若系统不存在对应key，会静默失败，不影响订阅 sites 已更新。
         """
         try:
@@ -513,123 +481,11 @@ class P115StrgmSub(_PluginBase):
             logger.info(f"已屏蔽系统订阅：检测到订阅改动，按规则不自动拉回（subscribe_id={sid}）")
         return
 
-    # ------------------ HDHive cookie（保留） ------------------
-
-    def _check_and_refresh_hdhive_cookie(self) -> Optional[str]:
-        if not self._hdhive_auto_refresh:
-            return self._hdhive_cookie if self._hdhive_cookie else None
-
-        if not self._hdhive_username or not self._hdhive_password:
-            logger.warning("HDHive: 已启用自动刷新但未配置用户名/密码，无法刷新 Cookie")
-            return self._hdhive_cookie if self._hdhive_cookie else None
-
-        if self._hdhive_cookie:
-            is_valid, reason = check_hdhive_cookie_valid(self._hdhive_cookie, self._hdhive_refresh_before)
-            if is_valid:
-                logger.info(f"HDHive: Cookie 检查通过 - {reason}")
-                return self._hdhive_cookie
-            else:
-                logger.info(f"HDHive: Cookie 需要刷新 - {reason}")
-        else:
-            logger.info("HDHive: 未配置 Cookie，尝试登录获取")
-
-        logger.info("HDHive: 开始刷新 Cookie...")
-        new_cookie = refresh_hdhive_cookie_with_playwright(self._hdhive_username, self._hdhive_password)
-
-        if new_cookie:
-            token_info = get_hdhive_token_info(new_cookie)
-            if token_info:
-                logger.info(
-                    f"HDHive: 新 Cookie 信息 - 用户ID: {token_info['user_id']}, "
-                    f"过期时间: {token_info['exp_time'].strftime('%Y-%m-%d %H:%M:%S')}"
-                )
-            self._hdhive_cookie = new_cookie
-            self.__update_config()
-            logger.info("HDHive: Cookie 刷新成功并已保存到配置")
-            return new_cookie
-
-        logger.error("HDHive: Cookie 刷新失败")
-        return self._hdhive_cookie if self._hdhive_cookie else None
-
-    # ------------------ HDHive 签到 ------------------
-
-    # ------------------ HDHive 签到 ------------------
-
-    def _do_hdhive_checkin(self):
-        """执行 HDHive 签到"""
-        if not self._hdhive_checkin_enabled:
-            return
-
-        mode = self._hdhive_checkin_mode
-        checkin_type = self._hdhive_checkin_type
-        type_label = "赌狗签到" if checkin_type == "gamble" else "每日签到"
-        mode_label = "Playwright" if mode == "playwright" else "API"
-
-        logger.info(f"HDHive 签到: 开始执行 [{mode_label}] [{type_label}]")
-
-        try:
-            if mode == "playwright":
-                if not self._hdhive_username or not self._hdhive_password:
-                    logger.warning("HDHive 签到: Playwright 模式未配置用户名/密码")
-                    return
-                result = hdhive_checkin_playwright(
-                    username=self._hdhive_username,
-                    password=self._hdhive_password,
-                    cookie=self._hdhive_cookie,
-                    checkin_type=checkin_type,
-                )
-            else:
-                # API 模式：优先使用 API Key，否则使用 Cookie
-                if self._hdhive_api_key:
-                    result = hdhive_checkin_api(
-                        api_key=self._hdhive_api_key,
-                        checkin_type=checkin_type,
-                    )
-                else:
-                    cookie = self._check_and_refresh_hdhive_cookie()
-                    if not cookie:
-                        logger.warning("HDHive 签到: API 模式无可用 API Key 或 Cookie")
-                        return
-                    result = hdhive_checkin_api(
-                        cookie=cookie,
-                        checkin_type=checkin_type,
-                    )
-
-            # 日志
-            if result["success"]:
-                points_info = f"，积分: +{result['points']}" if result.get("points") else ""
-                multiplier_info = f"（{result['multiplier']}x翻倍）" if result.get("multiplier") and result["multiplier"] > 1 else ""
-                logger.info(f"HDHive 签到成功: {result['message']}{points_info}{multiplier_info}")
-            else:
-                logger.warning(f"HDHive 签到失败: {result['message']}")
-
-            # 签到通知始终发送（不受 self._notify 控制）
-            status = "✅ 成功" if result.get("success") else "❌ 失败"
-            text_parts = [f"模式: {mode_label}", f"结果: {result.get('message', '未知')}"]
-            if result.get("points"):
-                text_parts.append(f"积分: +{result['points']}")
-            if result.get("multiplier") and result["multiplier"] > 1:
-                text_parts.append(f"倍率: {result['multiplier']}x（Premium）")
-            self.post_message(
-                mtype=NotificationType.Plugin,
-                title=f"【HDHive {type_label}】{status}",
-                text="\n".join(text_parts),
-            )
-
-        except Exception as e:
-            logger.error(f"HDHive 签到异常: {e}", exc_info=True)
-            self.post_message(
-                mtype=NotificationType.Plugin,
-                title=f"【HDHive {type_label}】❌ 异常",
-                text=f"签到执行异常: {e}",
-            )
-
     # ------------------ init_plugin ------------------
 
     def init_plugin(self, config: dict = None):
         self.stop_service()
         self._ensure_toggle_scheduler()
-        download_so_file(Path(__file__).parent / "lib")
 
         if config:
             self._enabled = config.get("enabled", False)
@@ -647,39 +503,17 @@ class P115StrgmSub(_PluginBase):
             self._onlyonce = config.get("onlyonce", False)
             self._cookies = config.get("cookies", "")
 
-            self._pansou_enabled = config.get("pansou_enabled", True)
-            self._pansou_url = config.get("pansou_url", "https://so.252035.xyz/")
-            self._pansou_username = config.get("pansou_username", "")
-            self._pansou_password = config.get("pansou_password", "")
-            self._pansou_auth_enabled = config.get("pansou_auth_enabled", False)
-            self._pansou_channels = config.get("pansou_channels", "QukanMovie")
-
             self._save_path = config.get("save_path", "/我的接收/MoviePilot/TV")
             self._movie_save_path = config.get("movie_save_path", "/我的接收/MoviePilot/Movie")
             self._only_115 = config.get("only_115", True)
             self._exclude_subscribes = config.get("exclude_subscribes", []) or []
 
-            self._nullbr_enabled = config.get("nullbr_enabled", False)
-            self._nullbr_appid = config.get("nullbr_appid", "")
-            self._nullbr_api_key = config.get("nullbr_api_key", "")
-
-            self._hdhive_enabled = config.get("hdhive_enabled", False)
-            self._hdhive_query_mode = config.get("hdhive_query_mode", "api")
-            self._hdhive_api_key = config.get("hdhive_api_key", "")
-            self._hdhive_auto_unlock = config.get("hdhive_auto_unlock", False)
-            self._hdhive_max_unlock_points = int(config.get("hdhive_max_unlock_points", 50) or 50)
-            self._hdhive_max_points_per_sub = int(config.get("hdhive_max_points_per_sub", 20) or 20)
-            self._hdhive_username = config.get("hdhive_username", "")
-            self._hdhive_password = config.get("hdhive_password", "")
-            self._hdhive_cookie = config.get("hdhive_cookie", "")
-            self._hdhive_auto_refresh = config.get("hdhive_auto_refresh", False)
-            self._hdhive_refresh_before = int(config.get("hdhive_refresh_before", 86400) or 86400)
-            self._hdhive_checkin_enabled = config.get("hdhive_checkin_enabled", False)
-            self._hdhive_checkin_mode = config.get("hdhive_checkin_mode", "api")
-            # UI 使用 hdhive_checkin_gambler (bool)，转换为内部 hdhive_checkin_type (string)
-            self._hdhive_checkin_type = "gamble" if config.get("hdhive_checkin_gambler", False) else "normal"
-            # 签到时间每次初始化随机生成（6~9点随机分钟），避免固定时间触发风控
-            self._hdhive_checkin_cron = f"{random.randint(0, 59)} {random.randint(6, 9)} * * *"
+            # Telegram 配置
+            self._telegram_enabled = config.get("telegram_enabled", True)
+            self._telegram_mode = config.get("telegram_mode", "http")
+            self._telegram_channels = config.get("telegram_channels", "gimy115,QukanMovie,yingshiziyuanpindao")
+            self._telegram_api_id = config.get("telegram_api_id", "")
+            self._telegram_api_hash = config.get("telegram_api_hash", "")
 
             self._max_transfer_per_sync = int(config.get("max_transfer_per_sync", 50) or 50)
             self._batch_size = int(config.get("batch_size", 20) or 20)
@@ -742,40 +576,20 @@ class P115StrgmSub(_PluginBase):
         if proxy:
             logger.info(f"使用 MoviePilot PROXY: {proxy}")
 
-        if self._pansou_enabled and self._pansou_url:
-            self._pansou_client = PanSouClient(
-                base_url=self._pansou_url,
-                username=self._pansou_username,
-                password=self._pansou_password,
-                auth_enabled=self._pansou_auth_enabled,
-                proxy=proxy
-            )
-
-        if self._nullbr_enabled:
-            if not self._nullbr_appid or not self._nullbr_api_key:
-                missing = []
-                if not self._nullbr_appid:
-                    missing.append("APP ID")
-                if not self._nullbr_api_key:
-                    missing.append("API Key")
-                logger.warning(f"Nullbr 已启用但缺少必要配置：{', '.join(missing)}，将无法使用 Nullbr 查询功能")
-                self._nullbr_client = None
+        # Telegram 客户端
+        if self._telegram_enabled:
+            channels = [ch.strip() for ch in self._telegram_channels.split(",") if ch.strip()] if self._telegram_channels else []
+            if channels:
+                self._telegram_client = TelegramClient(
+                    channels=channels,
+                    mode=self._telegram_mode,
+                    api_id=self._telegram_api_id,
+                    api_hash=self._telegram_api_hash,
+                    proxy=proxy,
+                )
+                logger.info(f"Telegram 客户端初始化成功（模式: {self._telegram_mode}, 频道: {channels}）")
             else:
-                self._nullbr_client = NullbrClient(app_id=self._nullbr_appid, api_key=self._nullbr_api_key, proxy=proxy)
-                logger.info("Nullbr 客户端初始化成功")
-
-        # HDHive 客户端初始化（仅 Playwright 模式搜索时动态创建客户端，API 模式直接在 search_hdhive 中请求）
-        if self._hdhive_enabled:
-            # Playwright 测试用户名密码，API 测试 api_key
-            if self._hdhive_query_mode == "playwright" and (not self._hdhive_username or not self._hdhive_password):
-                logger.warning("HDHive (Playwright 模式) 已启用但未配置用户名和密码，将无法使用 HDHive 查询功能")
-                self._hdhive_client = None
-            elif self._hdhive_query_mode == "api" and not self._hdhive_api_key:
-                logger.warning("HDHive (API 模式) 已启用但未配置 API Key，将无法使用 HDHive 查询功能")
-                self._hdhive_client = None
-            else:
-                logger.info(f"HDHive 配置已加载（模式：{self._hdhive_query_mode}）")
-                self._hdhive_client = None
+                logger.warning("Telegram 已启用但未配置频道列表")
 
         if self._cookies:
             self._p115_manager = P115ClientManager(cookies=self._cookies)
@@ -791,24 +605,12 @@ class P115StrgmSub(_PluginBase):
         self._init_subscribe_handler()
 
         self._search_handler = SearchHandler(
-            pansou_client=self._pansou_client,
-            nullbr_client=self._nullbr_client,
-            hdhive_client=self._hdhive_client,
-            pansou_enabled=self._pansou_enabled,
-            nullbr_enabled=self._nullbr_enabled,
-            hdhive_enabled=self._hdhive_enabled,
-            hdhive_query_mode=self._hdhive_query_mode,
-            hdhive_api_key=self._hdhive_api_key,
-            hdhive_auto_unlock=self._hdhive_auto_unlock,
-            hdhive_max_unlock_points=self._hdhive_max_unlock_points,
-            hdhive_max_points_per_sub=self._hdhive_max_points_per_sub,
-            hdhive_username=self._hdhive_username,
-            hdhive_password=self._hdhive_password,
-            hdhive_cookie=self._hdhive_cookie,
+            telegram_client=self._telegram_client,
+            telegram_enabled=self._telegram_enabled,
+            telegram_channels=self._telegram_channels,
             only_115=self._only_115,
-            pansou_channels=self._pansou_channels
         )
-        # 设置持久化函数，用于保存订阅的历史积分花费
+        # 设置持久化函数
         self._search_handler.set_data_funcs(self.get_data, self.save_data)
 
         self._sync_handler = SyncHandler(
@@ -828,7 +630,7 @@ class P115StrgmSub(_PluginBase):
         )
 
         self._api_handler = ApiHandler(
-            pansou_client=self._pansou_client,
+            telegram_client=self._telegram_client,
             p115_manager=self._p115_manager,
             only_115=self._only_115,
             save_path=self._save_path,
@@ -848,33 +650,12 @@ class P115StrgmSub(_PluginBase):
             "save_path": self._save_path,
             "movie_save_path": self._movie_save_path,
             "cookies": self._cookies,
-            "pansou_enabled": self._pansou_enabled,
-            "pansou_url": self._pansou_url,
-            "pansou_username": self._pansou_username,
-            "pansou_password": self._pansou_password,
-            "pansou_auth_enabled": self._pansou_auth_enabled,
-            "pansou_channels": self._pansou_channels,
-            "nullbr_enabled": self._nullbr_enabled,
-            "nullbr_appid": self._nullbr_appid,
-            "nullbr_api_key": self._nullbr_api_key,
-            # HDHive 配置
-            "hdhive_enabled": self._hdhive_enabled,
-            "hdhive_query_mode": self._hdhive_query_mode,
-            "hdhive_api_key": self._hdhive_api_key,
-            "hdhive_auto_unlock": self._hdhive_auto_unlock,
-            "hdhive_max_unlock_points": self._hdhive_max_unlock_points,
-            "hdhive_max_points_per_sub": self._hdhive_max_points_per_sub,
-            "hdhive_username": self._hdhive_username,
-            "hdhive_password": self._hdhive_password,
-            "hdhive_cookie": self._hdhive_cookie,
-            "hdhive_auto_refresh": self._hdhive_auto_refresh,
-            "hdhive_refresh_before": self._hdhive_refresh_before,
-            # HDHive 签到
-            "hdhive_checkin_enabled": self._hdhive_checkin_enabled,
-            "hdhive_checkin_mode": self._hdhive_checkin_mode,
-            "hdhive_checkin_type": self._hdhive_checkin_type,
-            "hdhive_checkin_gambler": self._hdhive_checkin_type == "gamble",
-            "hdhive_checkin_cron": self._hdhive_checkin_cron,
+            # Telegram 配置
+            "telegram_enabled": self._telegram_enabled,
+            "telegram_mode": self._telegram_mode,
+            "telegram_channels": self._telegram_channels,
+            "telegram_api_id": self._telegram_api_id,
+            "telegram_api_hash": self._telegram_api_hash,
             # 其他配置
             "exclude_subscribes": self._exclude_subscribes,
             "block_system_subscribe": self._block_system_subscribe,
@@ -938,7 +719,7 @@ class P115StrgmSub(_PluginBase):
                 "summary": "清空历史记录"
             }
         ]
-    
+
     @staticmethod
     def get_command() -> List[Dict[str, Any]]:
         """定义远程控制命令"""
@@ -951,7 +732,6 @@ class P115StrgmSub(_PluginBase):
                 "action": "p115_sub_action"
             }
         }]
-
 
     def get_service(self) -> List[Dict[str, Any]]:
         if not self._enabled:
@@ -986,20 +766,6 @@ class P115StrgmSub(_PluginBase):
                 "kwargs": {"hours": 8}
             })
 
-        # HDHive 签到服务
-        if self._hdhive_checkin_enabled and self._hdhive_checkin_cron:
-            try:
-                services.append({
-                    "id": "P115StrgmSub_HDHiveCheckin",
-                    "name": "HDHive 签到服务",
-                    "trigger": CronTrigger.from_crontab(self._hdhive_checkin_cron),
-                    "func": self._do_hdhive_checkin,
-                    "kwargs": {}
-                })
-                logger.info(f"HDHive 签到服务已注册，Cron: {self._hdhive_checkin_cron}")
-            except Exception as e:
-                logger.warning(f"HDHive 签到 Cron 表达式无效：{self._hdhive_checkin_cron}，错误：{e}")
-
         return services
 
     # ======================================================================
@@ -1007,14 +773,14 @@ class P115StrgmSub(_PluginBase):
     # ======================================================================
 
     def _do_sync(self) -> bool:
-        # 至少启用一个搜索源
-        if not self._pansou_enabled and not self._nullbr_enabled and not self._hdhive_enabled:
-            logger.error("搜索源均未启用（PanSou/Nullbr/HDHive），无法执行")
+        # 检查搜索源是否启用
+        if not self._telegram_enabled:
+            logger.error("Telegram 搜索源未启用，无法执行")
             if self._notify:
                 self.post_message(
                     mtype=NotificationType.Plugin,
                     title="【115网盘订阅追更】配置错误",
-                    text="PanSou、Nullbr、HDHive 均未启用，请至少启用一个搜索源。"
+                    text="Telegram 搜索源未启用，请检查配置。"
                 )
             return False
 
@@ -1047,13 +813,8 @@ class P115StrgmSub(_PluginBase):
         except Exception:
             pass
         try:
-            if self._pansou_client:
-                self._pansou_client.reset_api_call_count()
-        except Exception:
-            pass
-        try:
-            if self._nullbr_client:
-                self._nullbr_client.reset_api_call_count()
+            if self._telegram_client:
+                self._telegram_client.reset_api_call_count()
         except Exception:
             pass
         try:
@@ -1151,7 +912,7 @@ class P115StrgmSub(_PluginBase):
                 logger.error(f"同步任务异常：{e}")
                 success = False
             finally:
-                # 仅在用户开启了���蔽系统订阅时，才执行自动窗口切换逻辑
+                # 仅在用户开启了屏蔽系统订阅时，才执行自动窗口切换逻辑
                 if success and self._block_system_subscribe and self._is_last_run_today(run_start):
                     if int(self._unblock_delay_minutes) < 0 or (not self._window_enabled()):
                         self._enter_blocked(reason="触发条件1")
