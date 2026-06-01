@@ -610,8 +610,6 @@ class P115StrgmSub(_PluginBase):
             telegram_channels=self._telegram_channels,
             only_115=self._only_115,
         )
-        # 设置持久化函数
-        self._search_handler.set_data_funcs(self.get_data, self.save_data)
 
         self._sync_handler = SyncHandler(
             p115_manager=self._p115_manager,
@@ -815,11 +813,6 @@ class P115StrgmSub(_PluginBase):
         try:
             if self._telegram_client:
                 self._telegram_client.reset_api_call_count()
-        except Exception:
-            pass
-        try:
-            if self._search_handler:
-                self._search_handler.reset_task_spent_points()
         except Exception:
             pass
 

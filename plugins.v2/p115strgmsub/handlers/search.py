@@ -34,10 +34,6 @@ class SearchHandler:
         self._telegram_channels = self._parse_channels(telegram_channels)
         self._only_115 = only_115
 
-        # 持久化函数（保留接口兼容）
-        self._get_data_func = None
-        self._save_data_func = None
-
     @staticmethod
     def _parse_channels(channels_str: str) -> List[str]:
         """解析逗号分隔的频道列表"""
@@ -172,44 +168,9 @@ class SearchHandler:
         import asyncio
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # 如果已在异步上下文中，创建新事件循环
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    future = pool.submit(asyncio.run, self._telegram_client.search(keyword, self._telegram_channels))
-                    results = future.result(timeout=60)
-            else:
-                results = loop.run_until_complete(
-                    self._telegram_client.search(keyword, self._telegram_channels)
-                )
-        except RuntimeError:
-            results = asyncio.run(
+            return asyncio.run(
                 self._telegram_client.search(keyword, self._telegram_channels)
             )
         except Exception as e:
             logger.error(f"Telegram 搜索异常: {e}")
             return []
-
-        return results
-
-    # ------------------------------------------------------------------
-    # 兼容接口
-    # ------------------------------------------------------------------
-
-    def set_data_funcs(self, get_data_func, save_data_func):
-        """设置持久化数据读写函数（保留接口兼容）"""
-        self._get_data_func = get_data_func
-        self._save_data_func = save_data_func
-
-    def reset_task_spent_points(self):
-        """保留接口兼容（原 HDHive 积分相关，Telegram 不需要）"""
-        pass
-
-    def reset_sub_spent_points(self, sub_key: str = ""):
-        """保留接口兼容"""
-        pass
-
-    def clear_sub_points(self, sub_key: str):
-        """保留接口兼容"""
-        pass

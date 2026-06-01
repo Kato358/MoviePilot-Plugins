@@ -491,41 +491,17 @@ class SyncHandler:
             # 成功转存的集数列表
             success_episodes = []
 
-            # 智能回退搜索：按源迭代
-            enabled_sources = self._search_handler.get_enabled_sources()
+            # 搜索资源
+            p115_results = self._search_handler.search_resources(
+                mediainfo=mediainfo,
+                media_type=MediaType.TV,
+                season=season
+            )
 
-            if not enabled_sources:
-                logger.warning(f"没有可用的搜索源，跳过 {mediainfo.title} S{season} 的搜索")
-                return transferred_count
-
-            for source_index, source in enumerate(enabled_sources):
-                if not missing_episodes:
-                    logger.info(f"{mediainfo.title_year} S{season} 所有缺失剧集已转存完成，不再查询后续源")
-                    break
-
-                if transferred_count >= self._max_transfer_per_sync:
-                    logger.info(f"已达单次同步上限 {self._max_transfer_per_sync}，剩余 {len(missing_episodes)} 集将在下次同步处理")
-                    break
-
-                logger.info(f"[{source.upper()}] 开始搜索 {mediainfo.title} S{season}（当前缺失: {len(missing_episodes)} 集）")
-
-                # 搜索当前源
-                p115_results = self._search_handler.search_single_source(
-                    source=source,
-                    mediainfo=mediainfo,
-                    media_type=MediaType.TV,
-                    season=season
-                )
-
-                if not p115_results:
-                    remaining_sources = enabled_sources[source_index + 1:]
-                    if remaining_sources:
-                        logger.info(f"[{source.upper()}] 未找到资源，将尝试下一个源: {remaining_sources[0].upper()}")
-                    else:
-                        logger.info(f"[{source.upper()}] 未找到资源，已无更多可用源")
-                    continue
-
-                logger.info(f"[{source.upper()}] 找到 {len(p115_results)} 个 115 网盘资源")
+            if not p115_results:
+                logger.info(f"未找到 {mediainfo.title} S{season} 的资源")
+            else:
+                logger.info(f"找到 {len(p115_results)} 个 115 网盘资源")
 
                 # 遍历搜索结果
                 for resource in p115_results:
@@ -715,13 +691,8 @@ class SyncHandler:
                         logger.error(f"处理分享链接出错：{share_url}, 错误：{str(e)}")
                         continue
 
-                # 当前源处理完成
                 if missing_episodes:
-                    remaining_sources = enabled_sources[source_index + 1:]
-                    if remaining_sources:
-                        logger.info(f"[{source.upper()}] 处理完成，仍有 {len(missing_episodes)} 集缺失，继续查询下一个源: {remaining_sources[0].upper()}")
-                    else:
-                        logger.info(f"[{source.upper()}] 处理完成，仍有 {len(missing_episodes)} 集缺失，已无更多可用源")
+                    logger.info(f"处理完成，仍有 {len(missing_episodes)} 集缺失")
 
             # 更新订阅状态
             # 将网盘已存在的集数和本次成功转存的集数合并

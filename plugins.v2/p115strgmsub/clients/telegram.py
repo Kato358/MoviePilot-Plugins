@@ -55,11 +55,8 @@ class TelegramClient:
         self._api_call_count = 0
         self._db_lock = Lock()
 
-        # 代理兼容字符串和字典
-        if proxy:
-            self._proxies = proxy if isinstance(proxy, dict) else {"http": proxy, "https": proxy}
-        else:
-            self._proxies = None
+        # 代理配置（httpx 使用单个 URL 字符串）
+        self._proxy = proxy if isinstance(proxy, str) else (proxy.get("http") or proxy.get("https")) if isinstance(proxy, dict) else None
 
         # 初始化 SQLite
         if not db_path:
@@ -198,7 +195,7 @@ class TelegramClient:
         :param limit: 最大抓取消息数，0 表示使用默认值
         :return: 抓取的消息列表
         """
-        import requests
+        import httpx
         from bs4 import BeautifulSoup
 
         if limit <= 0:
@@ -210,32 +207,31 @@ class TelegramClient:
         before_id = 0  # 用于分页
 
         try:
-            proxies = self._proxies
             headers = {
                 "User-Agent": getattr(settings, 'USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
             }
 
-            page = 1
-            max_pages = 5  # 最多翻5页，每页约20条
+            async with httpx.AsyncClient(
+                proxy=self._proxy,
+                timeout=self._REQUEST_TIMEOUT,
+                follow_redirects=True,
+            ) as client:
+                page = 1
+                max_pages = 5  # 最多翻5页，每页约20条
 
-            while page <= max_pages:
-                page_url = url
-                if before_id > 0:
-                    page_url = f"{url}?before={before_id}"
+                while page <= max_pages:
+                    page_url = url
+                    if before_id > 0:
+                        page_url = f"{url}?before={before_id}"
 
-                try:
-                    resp = requests.get(
-                        page_url,
-                        headers=headers,
-                        proxies=proxies,
-                        timeout=self._REQUEST_TIMEOUT,
-                    )
-                    resp.raise_for_status()
-                except Exception as e:
-                    logger.warning(f"HTTP 请求失败 {page_url}: {e}")
-                    break
+                    try:
+                        resp = await client.get(page_url, headers=headers)
+                        resp.raise_for_status()
+                    except Exception as e:
+                        logger.warning(f"HTTP 请求失败 {page_url}: {e}")
+                        break
 
-                soup = BeautifulSoup(resp.text, "html.parser")
+                    soup = BeautifulSoup(resp.text, "html.parser")
                 message_divs = soup.select(".tgme_widget_message_wrap")
 
                 if not message_divs:
