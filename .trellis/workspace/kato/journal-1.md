@@ -23,3 +23,36 @@
 - `plugin/quality-guidelines.md` — 质量规范
 - `guides/index.md` — 更新为项目相关内容
 
+
+
+## Session 1: Trellis 初始化与 Telegram 搜索源设计
+
+**Date**: 2026-06-01
+**Task**: Trellis 初始化与 Telegram 搜索源设计
+**Branch**: `main`
+
+### Summary
+
+初始化 Trellis 开发环境；创建插件开发规范（8 个 spec 文件）；完成 Telegram 搜索源替代方案设计（ADR-0001）；创建 Telegram 任务 PRD 和实现清单；变更远程仓库为 Kato358/MoviePilot-Plugins
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c3662cd` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
