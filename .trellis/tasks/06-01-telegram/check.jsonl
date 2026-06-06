@@ -1,7 +1,5 @@
-[
-  {"file": ".trellis/spec/plugin/quality-guidelines.md", "reason": "代码质量检查和禁止模式验证"},
-  {"file": ".trellis/spec/plugin/client-guidelines.md", "reason": "客户端封装规范验证"},
-  {"file": ".trellis/spec/plugin/directory-structure.md", "reason": "模块结构规范验证"},
-  {"file": "docs/adr/0001-telegram-as-sole-search-source.md", "reason": "架构决策合规性验证"},
-  {"file": "CONTEXT.md", "reason": "术语一致性验证"}
-]
+{"file": ".trellis/spec/plugin/quality-guidelines.md", "reason": "代码质量检查和禁止模式验证"}
+{"file": ".trellis/spec/plugin/client-guidelines.md", "reason": "客户端封装规范验证"}
+{"file": ".trellis/spec/plugin/directory-structure.md", "reason": "模块结构规范验证"}
+{"file": "docs/adr/0001-telegram-as-sole-search-source.md", "reason": "架构决策合规性验证"}
+{"file": "CONTEXT.md", "reason": "术语一致性验证"}
