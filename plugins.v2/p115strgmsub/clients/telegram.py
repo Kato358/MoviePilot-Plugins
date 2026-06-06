@@ -232,38 +232,38 @@ class TelegramClient:
                         break
 
                     soup = BeautifulSoup(resp.text, "html.parser")
-                message_divs = soup.select(".tgme_widget_message_wrap")
+                    message_divs = soup.select(".tgme_widget_message_wrap")
 
-                if not message_divs:
-                    break
+                    if not message_divs:
+                        break
 
-                page_messages = []
-                for div in message_divs:
-                    try:
-                        msg = self._parse_message_div(div, channel)
-                        if msg:
-                            page_messages.append(msg)
-                    except Exception as e:
-                        logger.debug(f"解析消息元素失败: {e}")
-                        continue
+                    page_messages = []
+                    for div in message_divs:
+                        try:
+                            msg = self._parse_message_div(div, channel)
+                            if msg:
+                                page_messages.append(msg)
+                        except Exception as e:
+                            logger.debug(f"解析消息元素失败: {e}")
+                            continue
 
-                if not page_messages:
-                    break
+                    if not page_messages:
+                        break
 
-                all_messages.extend(page_messages)
+                    all_messages.extend(page_messages)
 
-                # 获取最小 message_id 用于下一页分页
-                min_id = min(m["message_id"] for m in page_messages)
+                    # 获取最小 message_id 用于下一页分页
+                    min_id = min(m["message_id"] for m in page_messages)
 
-                # 如果已到达已索引的位置，停止抓取
-                if min_id <= max_existing_id:
-                    break
+                    # 如果已到达已索引的位置，停止抓取
+                    if min_id <= max_existing_id:
+                        break
 
-                before_id = min_id
-                page += 1
+                    before_id = min_id
+                    page += 1
 
-                # 请求间隔，避免频繁抓取
-                await asyncio.sleep(0.5)
+                    # 请求间隔，避免频繁抓取
+                    await asyncio.sleep(0.5)
 
             # 过滤掉已存在的消息
             new_messages = [m for m in all_messages if m["message_id"] > max_existing_id]
